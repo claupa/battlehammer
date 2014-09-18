@@ -36,7 +36,6 @@ class Game:
 			else: self.defend(action_points)		
 			player_turn = False
 			no_victory = self.no_one_wins(current_enemy_player)
-
 		
 			
 	def attack(self, action_points):
@@ -57,15 +56,27 @@ class Game:
 		return False
 
 	def check_update_attack(self,attack_action, attack_result):
-		pass
+		x,y = attack_action
+		number_id = attack_result.number_id
+		if self.enemy_player_board[x][y] != number_id:
+			return False
+		self.enemy_player_board[x][y] *=  -1
+		return True 
 
 
 	def check_update_defense(self, defend_position, direction):
-		pass
+		x, y = defend_position
+		i,j = direction
+		if self.player_board[x][y] > 0 and self.player_board[x+i][y+j]==0:
+			self.player_board[x+i][y+j] = self.player_board[x][y]
+			self.player_board[x][y] = 0
+			return True
+		return False
 
 	def roll_dice(self):
-		pass
-
+		dice = random()
+		number = int(6*dice)
+		return 0 if number ==0 else 1 if number == 2 or number == 3 else 2 if number == 4 or number == 5 else 3 
 
 	def defend(self, action_points):
 		print "%s is defending ..." % (self.player)
@@ -94,3 +105,6 @@ class Game:
 		self.player_board = self.enemy_player_board
 		self.enemy_player_board = aux_board
 		return self.player, self.enemy_player
+
+
+print 'hello battle hammer'

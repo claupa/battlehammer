@@ -11,73 +11,89 @@ class Board:
 		  2 : Army(2, 'Pikemen', (2,3)), 
 		  3 : Army(3, 'Knights', (2,2)),
 		  4 : Army(4, 'Dragons', (1,3)),
-		  5 : Army(5, 'Archers', (1,5)), 
-		  0 : Army(0, 'Land', (1,1))}
+		  0 : Army(5, 'Archers', (1,5)),} 
+		  #0 : Army(0, 'Land', (1,1))}
+		self.repetitions = 50
 
 	def place_troops(self, index = 0):
-		last = index == len(self.troops)
-		if last:
-			failed, position, o = self.generate_start_position(self.troops[index])	
-			if not failed:
-				self.position_setting(position, army, o)
-			return not failed
-		else:
-			failed, position, o = self.generate_start_position(self.troops[index])
-			if failed: return False	
-			if not failed:
-				new_board = self.position_setting(position, army_type, o)
-				succeded = self.place_troops(index + 1, new_board)
+		# Place troops, receives an index param. It represents the next army to place.
+		# The list can be found in self.troops field.
+		## If this is the last army, then check that it can be placed with the current config
+		## if not then return False and erase the position.
+		last = index == len(self.troops)-1
+		## If this is not the last troop, then try to place the next troops.
+		## Once they are placed, try to fit my army in. If not repeat procedure until it works.
+		not_posible = True
+		while not_posible:
+			current_board =self.save_state() if last else self.place_troops(index+1)				
+			not_posible, new_board = self.try_place_troop(index, current_board)
+			if not not_posible: return new_board
 
-
-		for army in self.mapping.values():
-			if not army.number_id: continue			
-			x, y, o = self.generate_start_position(army)
 			
-	def save_state(self):
-		current_board = [[elem for elem in row] for row in self.board]
+	def save_state(self, board = []):
+		## save  state creates a new copy of the board as it is now.
+		copy_board = board if board else self.board
+		current_board = [[elem for elem in row] for row in copy_board]
 		return current_board
 
-	def generate_start_position(self,army_type, count = 0):
-		if count == 100:
-			return (False, (0,0), 0)
-		orientation = 0 if random() <= 0.5 else 1		
-		x,y = self.generate_random_position(army_type,orientation)
-		if self.check_position((x,y),army_type):
-			return (True, (x,y) , orientation)
-		else:
-			orientation = 0 if orientation else 1
-			x,y = self.generate_random_position(army_type, orientation)
-			if self.check_position((x,y),army_type):
-				return (True, (x,y) , orientation)
+	def place_troop(self,index):
+		## Place the first troop on the board
+		## Generate a random position and an orientation for the army
+		army_type = self.troops[index]		
+		orientation = 0 if random() <= 0.5 else 1	
+		point = self.generate_random_position(army_type, orientation)
+		posible = self.check_position(point,army_type)
+		board = self.save_state()
+		if posible:
+			return self.position_setting(point, army_type, board)
+		else: print "-----------------FAILED PLACE TROOP---------------"
 
-			else:
-				count += 1 
-				return self.generate_start_position(army_type, count++)
+	def try_place_troop(self, index, current_board):
+		## Try to place the troop number index on the board given the current board setted with 
+		## other troops.
+		counts = self.repetitions
+		army_type = self.troops[index]					
+		while counts >=0:
+			## Try to place the troops at a random position with a random orientation.
+			orientation = 0 if random() <= 0.5 else 1	
+			position = self.generate_random_position(army_type, orientation)
+			posible = self.check_position(position,army_type, current_board)
+			## If it is posible to place the troop at position then place the troop
+			## on the board and return the new board
+			if posible:
+				board = self.save_state(current_board)
+				return False, self.position_setting(position, army_type, board)
+			counts -= 1
+		## Otherwise return the same board with the not_posible setted to true
+		return True, current_board
 
 	def generate_random_position(self, army_type, orientation):
-		if orientation: army_type.swap_structure(orientation)
+		if orientation: army_type.swap_structure()
 		width, height = army_type.structure
 		x = min (int(random() * self.height) , self.height - height)
 		y = min (int(random() * self.width), self.width - width)
 		return (x,y)
 
-	def check_position(self, start_position, army_type):
+	def check_position(self, start_position, army_type, check_board = None):
 		width, height = army_type.structure
 		x_start, y_start = start_position
+		board = check_board if check_board else self.board
 		if x_start + height >= self.height or y_start + width >=self.width:
 			return False 
 		for i in range(x_start, x_start + height):
 			for j in range(y_start, y_start + width):
-				if self.board[i][j]:
+				if board[i][j]:
 					return False
 		return True
 
-	def position_setting(self, start_position, army_type, orientation):
+	def position_setting(self, start_position, army_type, board= None):
 		width, height = army_type.structure 
 		x_start, y_start = start_position
+		board = board if board else self.board
 		for i in range(x_start, x_start + height):
 			for j in range(y_start,y_start + width):
-				self.board[i][j] = army_type.number_id
+				board[i][j] = army_type.number_id
+		return board
 
 	def attack_position(self, position_setting):
 		x, y = position_setting
@@ -96,20 +112,23 @@ class Board:
 		self.board[x][y] = 0
 		return "Succesful move."
 
-	def load_board(self):
-		print "Not implemented."
-		pass
+	def load_board(self, board_to_copy = None):
+		if board_to_copy:
+			self.board = self.save_state(board_to_copy)
+		else:
+			self.board = self.place_troops(0)
 
 	def check_board(self):
-		print "Not implemented."
 		pass
 
 class Army:
-	def __init__(self, number_id, name, structure,orientation = 0):
+	""" An army has an ID number identifying what type of army it has.
+	It also has a formation 2x3 or 1x5 and an orientation which is used
+	to determine the swap."""
+	def __init__(self, number_id, name, structure):
 		self.number_id = number_id
 		self.name = name
 		self.structure = structure
-		self.orientation = orientation
 		self.soldiers = [] 
 		self.position =(0,0)
 
@@ -124,10 +143,7 @@ class Army:
 	def get_number(self):
 		return self.width * self.height
 
-	def swap_structure(self,orientation):
-		if orientation == self.orientation:
-			return
-		self.orientation = orientation
+	def swap_structure(self):
 		width, height = self.structure
 		dim    = width
 		width  = height
@@ -193,4 +209,7 @@ class Soldier:
 	def hitted(self):
 		return self.__discovered
 
-	
+board = Board()
+board.load_board()
+for r in board.board:
+	print r
